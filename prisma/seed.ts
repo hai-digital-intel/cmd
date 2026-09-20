@@ -17,6 +17,7 @@
 import "dotenv/config";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient, type TaskStatus, type VerificationLevel, type Phase, type BlockerType, type CostType, type CostStatus, type PortfolioStage } from "../generated/prisma/client";
+import { seedDocuments } from "./seedDocuments";
 
 const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -1327,6 +1328,18 @@ async function main() {
       });
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Document Register (Document Governance system — see PLAN.md §10)
+  // -------------------------------------------------------------------------
+  const documentRecords = await seedDocuments(prisma, {
+    gateRecords,
+    categoryRecords,
+    milestoneRecords,
+    taskRecords,
+    people,
+  });
+  console.log(`Seeded ${documentRecords.size} document register entries.`);
 
   // -------------------------------------------------------------------------
   // Blockers

@@ -10,6 +10,7 @@ function refresh() {
   revalidatePath("/blockers");
   revalidatePath("/readiness");
   revalidatePath("/activity");
+  revalidatePath("/documents");
 }
 
 export interface CreateBlockerInput {
@@ -20,6 +21,7 @@ export interface CreateBlockerInput {
   waitingOnText?: string;
   nextFollowUp?: Date;
   relatedTaskIds?: string[];
+  relatedDocumentId?: string;
 }
 
 export async function createBlocker(input: CreateBlockerInput) {
@@ -31,6 +33,7 @@ export async function createBlocker(input: CreateBlockerInput) {
       waitingOnPersonId: input.waitingOnPersonId,
       waitingOnText: input.waitingOnText,
       nextFollowUp: input.nextFollowUp,
+      relatedDocumentId: input.relatedDocumentId,
     },
   });
   if (input.relatedTaskIds?.length) {
@@ -68,10 +71,14 @@ export async function updateBlockerFollowUp(blockerId: string, nextFollowUp: Dat
 export async function draftChaseMessage(blockerId: string): Promise<string> {
   const blocker = await prisma.blocker.findUniqueOrThrow({
     where: { id: blockerId },
-    include: { waitingOnPerson: true, relatedTasks: { include: { task: true } } },
+    include: { waitingOnPerson: true, relatedTasks: { include: { task: true } }, relatedDocument: true },
   });
   const who = blocker.waitingOnPerson?.name ?? blocker.waitingOnText ?? "there";
-  const taskList = blocker.relatedTasks.map((rt) => `- ${rt.task.title}`).join("\n");
+  const items = [
+    ...blocker.relatedTasks.map((rt) => `- ${rt.task.title}`),
+    ...(blocker.relatedDocument ? [`- ${blocker.relatedDocument.name}`] : []),
+  ];
+  const taskList = items.join("\n");
   const daysOpen = Math.max(1, Math.round((Date.now() - blocker.startDate.getTime()) / (1000 * 60 * 60 * 24)));
 
   return `Hi ${who.replace(/\s*\(TBD\)\s*$/, "")},
