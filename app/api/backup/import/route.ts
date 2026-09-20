@@ -2,8 +2,15 @@ import { NextResponse } from "next/server";
 import { isValidBackupFile, BACKUP_SCHEMA_VERSION } from "@/lib/backupSchema";
 import { writeAutomaticPreRestoreBackup, restoreFromBackupData } from "@/lib/backup";
 import { logActivity } from "@/lib/actions/activity";
+import { isSameOriginRequest } from "@/lib/sameOrigin";
 
 export async function POST(req: Request) {
+  // This wipes and replaces the entire database — block any request that didn't originate
+  // from this app's own page (see lib/sameOrigin.ts for why that matters even single-user).
+  if (!isSameOriginRequest(req)) {
+    return NextResponse.json({ error: "Cross-origin requests are not allowed for this endpoint." }, { status: 403 });
+  }
+
   const form = await req.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {
