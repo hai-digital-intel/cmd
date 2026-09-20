@@ -1,4 +1,5 @@
-import type { LaunchGateStatus, ScoredLaunchGate, ScoredMilestone, ScoredTask } from "@/lib/types";
+import type { LaunchGateStatus, ScoredDocument, ScoredLaunchGate, ScoredMilestone, ScoredTask } from "@/lib/types";
+import { computeBlockingDocumentIds } from "@/lib/services/documentGovernance";
 
 export interface MilestoneCompletion {
   milestoneId: string;
@@ -31,41 +32,53 @@ export function computeMilestoneCompletion(
 export interface GateEvaluation {
   status: LaunchGateStatus;
   blockingTaskIds: string[];
+  blockingDocumentIds: string[];
 }
 
 /**
- * A gate is READY only when every requiredForLaunch milestone in its categories is complete.
- * Optional milestones never block a gate. If every blocking task is only NEEDS_CONFIRMATION
- * (nothing outright incomplete/blocked), the gate is reported as NEEDS_CONFIRMATION rather
- * than a flat NOT_READY, since the remaining work is "go verify a fact," not "go do work."
+ * A gate is READY only when every requiredForLaunch milestone in its categories is complete
+ * *and* every requiredForLaunch document pointed at it is complete. Optional milestones/
+ * documents never block a gate. If everything blocking is only NEEDS_CONFIRMATION (task
+ * status) or the document equivalent — nothing outright incomplete/blocked — the gate is
+ * reported as NEEDS_CONFIRMATION rather than a flat NOT_READY, since the remaining work is
+ * "go verify a fact," not "go do work."
+ *
+ * `documents` is optional and defaults to `[]` so every existing caller/test that doesn't
+ * know about documents keeps working exactly as before — additive, not a breaking change.
  */
 export function computeGateStatus(
   gate: ScoredLaunchGate,
   milestones: ScoredMilestone[],
   tasks: ScoredTask[],
+  documents: ScoredDocument[] = [],
 ): GateEvaluation {
   const gateMilestones = milestones.filter(
     (m) => gate.categoryIds.includes(m.categoryId) && m.requiredForLaunch,
   );
-  if (gateMilestones.length === 0) {
-    return { status: "READY", blockingTaskIds: [] };
-  }
 
   const blockingTaskIds = gateMilestones
     .map((m) => computeMilestoneCompletion(m, tasks))
     .flatMap((c) => c.blockingTaskIds);
+  const blockingDocumentIds = computeBlockingDocumentIds(gate.id, documents);
 
-  if (blockingTaskIds.length === 0) {
-    return { status: "READY", blockingTaskIds };
+  if (blockingTaskIds.length === 0 && blockingDocumentIds.length === 0) {
+    return { status: "READY", blockingTaskIds, blockingDocumentIds };
   }
 
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const blockingTasks = blockingTaskIds.map((id) => byId.get(id)).filter((t): t is ScoredTask => !!t);
-  const allNeedConfirmation = blockingTasks.every((t) => t.status === "NEEDS_CONFIRMATION");
+  const docsById = new Map(documents.map((d) => [d.id, d]));
+  const blockingDocs = blockingDocumentIds.map((id) => docsById.get(id)).filter((d): d is ScoredDocument => !!d);
+
+  const allTasksNeedConfirmation = blockingTasks.every((t) => t.status === "NEEDS_CONFIRMATION");
+  const allDocsNeedConfirmation = blockingDocs.every(
+    (d) => d.applicabilityStatus === "NEEDS_CONFIRMATION" || d.requirementLevel === "NEEDS_VERIFICATION" || d.lifecycleStatus === "NEEDS_CONFIRMATION",
+  );
 
   return {
-    status: allNeedConfirmation ? "NEEDS_CONFIRMATION" : "NOT_READY",
+    status: allTasksNeedConfirmation && allDocsNeedConfirmation ? "NEEDS_CONFIRMATION" : "NOT_READY",
     blockingTaskIds,
+    blockingDocumentIds,
   };
 }
 
@@ -73,10 +86,11 @@ export function computeAllGateStatuses(
   gates: ScoredLaunchGate[],
   milestones: ScoredMilestone[],
   tasks: ScoredTask[],
+  documents: ScoredDocument[] = [],
 ): Record<string, GateEvaluation> {
   const result: Record<string, GateEvaluation> = {};
   for (const gate of gates) {
-    result[gate.key] = computeGateStatus(gate, milestones, tasks);
+    result[gate.key] = computeGateStatus(gate, milestones, tasks, documents);
   }
   return result;
 }

@@ -1,6 +1,21 @@
 import { describe, it, expect } from "vitest";
 import { computeMilestoneCompletion, computeGateStatus, isCompanyReady } from "@/lib/services/launchGates";
-import type { ScoredLaunchGate, ScoredMilestone, ScoredTask } from "@/lib/types";
+import type { ScoredDocument, ScoredLaunchGate, ScoredMilestone, ScoredTask } from "@/lib/types";
+
+function doc(overrides: Partial<ScoredDocument> & Pick<ScoredDocument, "id">): ScoredDocument {
+  return {
+    name: overrides.id,
+    category: "GOVERNANCE",
+    priority: "P0",
+    requirementLevel: "REQUIRED",
+    lifecycleStatus: "NOT_STARTED",
+    applicabilityStatus: "APPLICABLE",
+    requiredForLaunch: false,
+    launchGateId: null,
+    createdAt: new Date("2026-01-01"),
+    ...overrides,
+  };
+}
 
 function task(overrides: Partial<ScoredTask> & Pick<ScoredTask, "id">): ScoredTask {
   return {
@@ -90,13 +105,60 @@ describe("computeGateStatus", () => {
     const tasks = [task({ id: "t1", milestoneId: "m1", status: "DONE" }), task({ id: "t2", milestoneId: "m2", status: "DONE" })];
     expect(computeGateStatus(gate, milestones, tasks).status).toBe("READY");
   });
+
+  it("is blocked by a required-for-launch document even with zero required milestones", () => {
+    const documents = [doc({ id: "d1", launchGateId: "gate-1", requiredForLaunch: true, lifecycleStatus: "DRAFTING" })];
+    const result = computeGateStatus(gate, [], [], documents);
+    expect(result.status).toBe("NOT_READY");
+    expect(result.blockingDocumentIds).toEqual(["d1"]);
+  });
+
+  it("is READY once a required document reaches ACTIVE", () => {
+    const documents = [doc({ id: "d1", launchGateId: "gate-1", requiredForLaunch: true, lifecycleStatus: "ACTIVE" })];
+    expect(computeGateStatus(gate, [], [], documents).status).toBe("READY");
+  });
+
+  it("is not blocked by a document pointed at a different gate", () => {
+    const documents = [doc({ id: "d1", launchGateId: "some-other-gate", requiredForLaunch: true, lifecycleStatus: "DRAFTING" })];
+    expect(computeGateStatus(gate, [], [], documents).status).toBe("READY");
+  });
+
+  it("optional (non-required) documents never block a gate", () => {
+    const documents = [doc({ id: "d1", launchGateId: "gate-1", requiredForLaunch: false, lifecycleStatus: "NOT_STARTED" })];
+    expect(computeGateStatus(gate, [], [], documents).status).toBe("READY");
+  });
+
+  it("a TRIGGER_DEPENDENT document never blocks a gate, even if marked requiredForLaunch", () => {
+    const documents = [
+      doc({ id: "d1", launchGateId: "gate-1", requiredForLaunch: true, applicabilityStatus: "TRIGGER_DEPENDENT", lifecycleStatus: "NOT_STARTED" }),
+    ];
+    expect(computeGateStatus(gate, [], [], documents).status).toBe("READY");
+  });
+
+  it("combines task and document blockers — both must clear for READY", () => {
+    const milestones: ScoredMilestone[] = [{ id: "m1", categoryId: "cat-1", requiredForLaunch: true, weight: 1, taskIds: ["t1"] }];
+    const tasks = [task({ id: "t1", milestoneId: "m1", status: "DONE" })];
+    const documents = [doc({ id: "d1", launchGateId: "gate-1", requiredForLaunch: true, lifecycleStatus: "DRAFTING" })];
+    const result = computeGateStatus(gate, milestones, tasks, documents);
+    expect(result.status).toBe("NOT_READY");
+    expect(result.blockingDocumentIds).toEqual(["d1"]);
+    expect(result.blockingTaskIds).toEqual([]);
+  });
 });
 
 describe("isCompanyReady", () => {
   it("requires every gate READY and no unresolved critical blocker", () => {
-    expect(isCompanyReady([{ status: "READY", blockingTaskIds: [] }], false)).toBe(true);
-    expect(isCompanyReady([{ status: "READY", blockingTaskIds: [] }], true)).toBe(false);
-    expect(isCompanyReady([{ status: "READY", blockingTaskIds: [] }, { status: "NOT_READY", blockingTaskIds: [] }], false)).toBe(false);
+    expect(isCompanyReady([{ status: "READY", blockingTaskIds: [], blockingDocumentIds: [] }], false)).toBe(true);
+    expect(isCompanyReady([{ status: "READY", blockingTaskIds: [], blockingDocumentIds: [] }], true)).toBe(false);
+    expect(
+      isCompanyReady(
+        [
+          { status: "READY", blockingTaskIds: [], blockingDocumentIds: [] },
+          { status: "NOT_READY", blockingTaskIds: [], blockingDocumentIds: [] },
+        ],
+        false,
+      ),
+    ).toBe(false);
   });
 
   it("is never ready with zero gates configured", () => {

@@ -107,3 +107,78 @@ haiconsulting.ae, services list) are seeded as fact.
 - Prisma 7 SQLite: using the classic `provider = "sqlite"` engine rather than a driver adapter —
   if `prisma generate` demands an adapter this plan falls back to `@prisma/adapter-better-sqlite3`.
 - `@xyflow/react` styling needs its CSS imported once in the root layout or nodes render unstyled.
+
+## 10. Document Governance Upgrade
+
+Turns `/documents` from a flat file vault into a real register: what documents h.ai needs,
+what state each is in, who must review/sign it, and what it blocks. Inspected first: the
+existing `Document` model (flat, `status: String`, no versioning/signatures/review workflow),
+`launchGates.ts`'s `computeGateStatus` (task-only), `readiness.ts` (task-only), the Blocker/
+CostItem models (already have `relatedTaskId`-style optional FKs — the pattern this upgrade
+reuses), and `backup.ts` (a fixed table list + sequential `createMany`, which the new tables
+have to fit into without introducing a circular FK at restore time).
+
+**Data-model changes** (see DATA_MODEL.md for full field lists):
+- `Document` gains real enums (`DocumentPriority`, `DocumentRequirementLevel`,
+  `DocumentSourceType`, `DocumentLifecycleStatus`, `ProfessionalReviewType`,
+  `DocumentApplicabilityStatus`) in place of the old free-text `status`, plus
+  `requiredForLaunch` + `launchGateId` (direct, not via category — a document can gate
+  something without its category being launch-critical), `triggerCondition`,
+  `requiresProfessionalReview`/`professionalReviewType`/`reviewerName`, `requiresSignature`,
+  `relatedMilestoneId` upgraded from a bare string to a real relation, and date fields split
+  by meaning (`reviewDueDate` = periodic review, `expiryDate` = hard expiry — never conflated).
+- New `DocumentVersion` (one row per revision; `isCurrent: Boolean` flag rather than a
+  `currentVersionId` pointer on `Document`, specifically to avoid a circular FK between
+  `Document` and `DocumentVersion` that would complicate both normal writes and backup/restore
+  ordering — Document keeps denormalized `filePath`/`mimeType`/etc. mirroring whichever version
+  `isCurrent`, so the existing file-serving route needs no changes).
+- New `DocumentSignatory` (`documentId` + `personId` + `signed` + `signedDate`); signature
+  status (NOT_REQUIRED/NOT_READY/READY/PARTIALLY_SIGNED/SIGNED) is **computed**, never stored,
+  matching how `LaunchGate.status` already works elsewhere in this codebase — one fewer place
+  for state to drift out of sync.
+- `Blocker.relatedDocumentId` and `CostItem.relatedDocumentId` (both nullable, both following
+  the exact `relatedTaskId` pattern those models already use) — a blocker or cost can now point
+  at a document instead of/alongside a task.
+- The existing free-text `Document.category` is repurposed to hold one of 20 fixed folder keys
+  (`lib/documentTaxonomy.ts`) mirroring the brief's logical folder structure — this is a
+  **different taxonomy** from the setup `Category` model (which organizes tasks for readiness),
+  so `categoryId` stays as an optional cross-link to a setup Category, not a replacement.
+
+**Readiness/launch-gate integration**: `computeGateStatus` (`lib/services/launchGates.ts`)
+gets a new optional 4th parameter, `documents: ScoredDocument[] = []` — additive and backward
+compatible, so every existing test keeps passing unchanged. A document blocks a gate only if
+`requiredForLaunch`, pointed at that gate, not OPTIONAL/NOT_APPLICABLE/TRIGGER_DEPENDENT, and
+not yet ACTIVE/SIGNED. A new `lib/services/documentGovernance.ts` holds the document-specific
+pure functions (countable/complete/weight-by-priority) exactly parallel to `readiness.ts`'s
+task functions, with its own `computeDocumentReadiness` shown as its own stat rather than
+blended into the existing task-only overall percentage — blending two different weight scales
+(task effectiveWeight vs. document priority weight) would silently distort a number three other
+pages already depend on and are already tested against. Documents affecting "is h.ai ready"
+happens through the gate mechanism instead, which already feeds `isCompanyReady`.
+
+**Migration strategy**: this is pre-launch software with no real end-user data yet — the only
+`Document` rows that can exist anywhere are ones created during my own testing in this session,
+already since removed. Per the same judgment call made earlier for the `Task.instructions`
+column (see git history), the schema changes are applied via a fresh Prisma migration and the
+database is reseeded rather than hand-migrating a handful of demo string values through an
+enum change. This is called out here and in the final report rather than assumed silently; a
+real deployment with genuine uploaded documents would need a one-off data-migration script
+mapping the old free-text `status` values to `DocumentLifecycleStatus` before running this
+migration, which is straightforward but intentionally not built since nothing exists to migrate.
+
+**Seed strategy**: the brief's full document list runs to several hundred named items across 20
+categories. Seeding every single bullet verbatim would produce a shallow, low-quality register
+(many near-duplicates, several categories not yet relevant to a two-person consultancy) and
+directly conflicts with the brief's own "avoid overwhelming," "not enterprise document
+management software" constraints. Instead: the full curated Launch Pack list (brief §32, ~75
+items) is seeded close to verbatim since it has a concrete acceptance test, plus a meaningful,
+individually-considered sample from every remaining category (AI delivery templates, sales/
+commercial, brand, contractors, vendors, partnerships, enterprise procurement, future SaaS —
+the last several correctly seeded `TRIGGER_DEPENDENT` since none of those triggers have fired).
+Nothing is marked `ACTIVE`/`SIGNED`/reviewed unless the existing seed already established that
+fact (the trade licence, ownership records); everything else is `DRAFT_REQUIRED`,
+`NEEDS_CONFIRMATION`, or `TRIGGER_DEPENDENT` as appropriate — never fabricated as complete.
+
+**Backward compatibility**: `/api/documents/[id]/file` (upload safety, MIME allowlisting) and
+`lib/storage.ts` are untouched — new fields are additive, and the file-serving contract
+(`Document.filePath`/`mimeType` always reflect the current file) is preserved by design.

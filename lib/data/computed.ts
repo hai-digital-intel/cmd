@@ -10,6 +10,7 @@ import {
 import { computeAllGateStatuses, isCompanyReady } from "@/lib/services/launchGates";
 import { selectNextActions, selectQuickWins } from "@/lib/services/prioritization";
 import { computeProjectedReadyDate } from "@/lib/services/timeline";
+import { computeDocumentReadiness, computeLaunchDocumentHealth } from "@/lib/services/documentGovernance";
 
 /**
  * The one function most pages call: loads the relational data once, then runs every pure
@@ -26,7 +27,9 @@ export async function computeReadinessOverview() {
   const criticalPath = computeCriticalPathReadiness(snapshot.tasks, criticalPathIds);
   const byCategory = computeCategoryReadiness(snapshot.tasks, snapshot.categories);
   const byGate = computeLaunchGateReadiness(snapshot.tasks, snapshot.gates);
-  const gateEvaluations = computeAllGateStatuses(snapshot.gates, snapshot.milestones, snapshot.tasks);
+  const gateEvaluations = computeAllGateStatuses(snapshot.gates, snapshot.milestones, snapshot.tasks, snapshot.documents);
+  const documentReadiness = computeDocumentReadiness(snapshot.documents);
+  const launchDocumentHealth = computeLaunchDocumentHealth(snapshot.documents);
 
   const openCriticalBlockerCount = await prisma.blocker.count({
     where: { status: "OPEN", type: { in: ["FOUNDER", "PARTNER"] } },
@@ -47,6 +50,8 @@ export async function computeReadinessOverview() {
     byCategory,
     byGate,
     gateEvaluations,
+    documentReadiness,
+    launchDocumentHealth,
     companyReady,
     openCriticalBlockerCount,
     nextActions,

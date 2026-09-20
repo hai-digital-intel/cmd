@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/client";
 import type {
   ScoredCategory,
+  ScoredDocument,
   ScoredLaunchGate,
   ScoredMilestone,
   ScoredTask,
@@ -12,7 +13,7 @@ import type {
  * page and server action computes readiness/priority the same way.
  */
 export async function loadDomainSnapshot() {
-  const [tasks, milestones, categories, gates] = await Promise.all([
+  const [tasks, milestones, categories, gates, documents] = await Promise.all([
     prisma.task.findMany({
       include: {
         dependsOn: { select: { dependsOnId: true } },
@@ -23,6 +24,7 @@ export async function loadDomainSnapshot() {
     prisma.milestone.findMany(),
     prisma.category.findMany(),
     prisma.launchGate.findMany({ include: { categories: { select: { id: true } } } }),
+    prisma.document.findMany(),
   ]);
 
   const unlockCounts = new Map<string, number>();
@@ -74,10 +76,24 @@ export async function loadDomainSnapshot() {
     categoryIds: g.categories.map((c) => c.id),
   }));
 
+  const scoredDocuments: ScoredDocument[] = documents.map((d) => ({
+    id: d.id,
+    name: d.name,
+    category: d.category,
+    priority: d.priority,
+    requirementLevel: d.requirementLevel,
+    lifecycleStatus: d.lifecycleStatus,
+    applicabilityStatus: d.applicabilityStatus,
+    requiredForLaunch: d.requiredForLaunch,
+    launchGateId: d.launchGateId,
+    createdAt: d.createdAt,
+  }));
+
   return {
     tasks: scoredTasks,
     milestones: scoredMilestones,
     categories: scoredCategories,
     gates: scoredGates,
+    documents: scoredDocuments,
   };
 }
