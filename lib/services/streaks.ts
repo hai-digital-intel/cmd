@@ -61,6 +61,39 @@ export function computeStreaks(completionTimestamps: Date[], now: Date = new Dat
   return { currentStreak, longestStreak, lastBrokenStreak, activeDayCount: activeDays.length };
 }
 
+export interface MomentumSummary {
+  completedToday: number;
+  /** Average completions per active day over the trailing window — your "normal pace". */
+  rollingAveragePerActiveDay: number;
+  /** completedToday as a % of rollingAveragePerActiveDay, uncapped (a great day can exceed 100%). */
+  percentOfAverage: number;
+}
+
+/** "Momentum": today's pace against your own recent normal, not against anyone else's. */
+export function computeMomentum(completionTimestamps: Date[], now: Date = new Date(), windowDays = 14): MomentumSummary {
+  const todayKey = toDayKey(now);
+  const completedToday = completionTimestamps.filter((ts) => toDayKey(ts) === todayKey).length;
+
+  // The baseline deliberately excludes today — otherwise today would be compared partly
+  // against itself, diluting exactly the signal this is meant to show.
+  const windowStartKey = toDayKey(new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000));
+  const priorDays = completionTimestamps.filter((ts) => {
+    const key = toDayKey(ts);
+    return key !== todayKey && key >= windowStartKey;
+  });
+  const activeDaysInWindow = new Set(priorDays.map(toDayKey)).size;
+  const rollingAveragePerActiveDay = activeDaysInWindow > 0 ? priorDays.length / activeDaysInWindow : 0;
+
+  const percentOfAverage =
+    rollingAveragePerActiveDay > 0
+      ? Math.round((completedToday / rollingAveragePerActiveDay) * 100)
+      : completedToday > 0
+        ? 100
+        : 0;
+
+  return { completedToday, rollingAveragePerActiveDay, percentOfAverage };
+}
+
 export interface HeatmapDay {
   date: string; // YYYY-MM-DD
   count: number;

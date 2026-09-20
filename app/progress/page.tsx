@@ -3,9 +3,10 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/db/client";
 import { computeReadinessOverview } from "@/lib/data/computed";
-import { computeStreaks, buildHeatmap } from "@/lib/services/streaks";
+import { computeStreaks, buildHeatmap, computeMomentum } from "@/lib/services/streaks";
 import { computeNeglectedTasks } from "@/lib/services/neglect";
 import { StreakSummaryCards } from "@/components/progress/streak-summary";
+import { MomentumCard } from "@/components/progress/momentum-card";
 import { Heatmap } from "@/components/progress/heatmap";
 import { NeglectedList } from "@/components/progress/neglected-list";
 
@@ -17,6 +18,7 @@ export default async function ProgressPage() {
 
   const timestamps = completedActivities.map((a) => a.createdAt);
   const streak = computeStreaks(timestamps);
+  const momentum = computeMomentum(timestamps);
   const heatmapDays = buildHeatmap(timestamps, 84);
   const neglected = computeNeglectedTasks(overview.snapshot.tasks, overview.tasksById);
 
@@ -28,6 +30,8 @@ export default async function ProgressPage() {
       </header>
 
       <StreakSummaryCards streak={streak} />
+
+      <MomentumCard momentum={momentum} />
 
       <Heatmap days={heatmapDays} />
 

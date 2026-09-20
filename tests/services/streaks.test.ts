@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeStreaks, buildHeatmap } from "@/lib/services/streaks";
+import { computeStreaks, buildHeatmap, computeMomentum } from "@/lib/services/streaks";
 
 const day = (offsetFromNow: number, now: Date) => new Date(now.getTime() + offsetFromNow * 24 * 60 * 60 * 1000);
 
@@ -48,6 +48,35 @@ describe("computeStreaks", () => {
       new Date("2026-01-10T20:00:00Z"),
     ];
     expect(computeStreaks(completions, now2).activeDayCount).toBe(1);
+  });
+});
+
+describe("computeMomentum", () => {
+  const now = new Date("2026-01-15T12:00:00Z");
+
+  it("is all zero with no history", () => {
+    expect(computeMomentum([], now)).toEqual({ completedToday: 0, rollingAveragePerActiveDay: 0, percentOfAverage: 0 });
+  });
+
+  it("counts only today's completions for completedToday", () => {
+    const completions = [day(0, now), day(0, now), day(-1, now)];
+    expect(computeMomentum(completions, now).completedToday).toBe(2);
+  });
+
+  it("compares today against the trailing-window average, not an arbitrary target", () => {
+    // 2 active days in the window (excluding today), 1 completion each -> average 1/day.
+    const completions = [day(-1, now), day(-2, now), day(0, now), day(0, now)];
+    const result = computeMomentum(completions, now, 14);
+    expect(result.rollingAveragePerActiveDay).toBe(1);
+    expect(result.percentOfAverage).toBe(200); // 2 today vs average of 1
+  });
+
+  it("ignores completions outside the trailing window", () => {
+    const farPast = day(-100, now);
+    const completions = [farPast, day(0, now)];
+    const result = computeMomentum(completions, now, 14);
+    expect(result.rollingAveragePerActiveDay).toBe(0);
+    expect(result.percentOfAverage).toBe(100); // no baseline yet, but something happened today
   });
 });
 
