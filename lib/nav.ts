@@ -6,6 +6,7 @@ import {
   FileText,
   Wallet,
   Gauge,
+  Flame,
   History,
   Settings as SettingsIcon,
   type LucideIcon,
@@ -25,6 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/costs", label: "Costs", icon: Wallet },
   { href: "/readiness", label: "Readiness", icon: Gauge },
+  { href: "/progress", label: "Progress", icon: Flame },
   { href: "/activity", label: "Activity", icon: History },
   { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
