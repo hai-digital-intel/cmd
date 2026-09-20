@@ -1,0 +1,505 @@
+// h.ai Setup Command Center — data model
+// Local-first SQLite. Kept portable (no SQLite-only types in app logic) so a future
+// migration to PostgreSQL/Supabase only requires changing `provider` + `url`.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// Company & people
+// ---------------------------------------------------------------------------
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  tagline     String?
+  description String?
+  jurisdiction String?
+  website     String?
+  archived    Boolean  @default(false)
+  archivedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owners      Ownership[]
+  tasks       Task[]
+}
+
+model Person {
+  id          String     @id @default(cuid())
+  name        String
+  email       String?
+  type        PersonType @default(OTHER)
+  isInternal  Boolean    @default(false)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  ownerships       Ownership[]
+  tasksOwned       Task[]      @relation("TaskOwner")
+  documentsOwned   Document[]  @relation("DocumentOwner")
+  blockersOwned    Blocker[]   @relation("BlockerOwner")
+  waitingBlockers  Blocker[]   @relation("BlockerWaitingOn")
+  notesOwned       Note[]      @relation("NoteOwner")
+  activities       Activity[]
+}
+
+enum PersonType {
+  FOUNDER
+  SHAREHOLDER
+  ACCOUNTANT
+  LAWYER
+  BANK
+  AUTHORITY
+  SUPPLIER
+  CONTRACTOR
+  OTHER
+}
+
+model Ownership {
+  id         String  @id @default(cuid())
+  companyId  String
+  personId   String
+  percent    Float
+  role       String? // e.g. "Founder", "Shareholder"
+
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  person     Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, personId])
+}
+
+// ---------------------------------------------------------------------------
+// Setup hierarchy: Category -> Milestone -> Task -> ChecklistItem
+// ---------------------------------------------------------------------------
+
+model Category {
+  id           String   @id @default(cuid())
+  key          String   @unique // stable slug, e.g. "corporate-legal"
+  name         String
+  description  String?
+  icon         String?
+  weight       Float    @default(1)
+  sortOrder    Int      @default(0)
+  launchGateId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  launchGate   LaunchGate? @relation(fields: [launchGateId], references: [id])
+  milestones   Milestone[]
+  tasks        Task[]
+  documents    Document[]
+  costItems    CostItem[]
+}
+
+enum Phase {
+  FOUNDATION
+  LEGAL_FINANCE
+  BRAND_DIGITAL
+  COMMERCIAL_INFRASTRUCTURE
+  OPERATIONAL_READINESS
+  LAUNCH_READY
+}
+
+model Milestone {
+  id               String   @id @default(cuid())
+  categoryId       String
+  title            String
+  description      String?
+  requiredForLaunch Boolean @default(false)
+  weight           Float    @default(1)
+  phase            Phase    @default(FOUNDATION)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  category         Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  tasks            Task[]
+
+  dependsOn        MilestoneDependency[] @relation("MilestoneDependent")
+  dependents       MilestoneDependency[] @relation("MilestonePrerequisite")
+}
+
+model MilestoneDependency {
+  id               String   @id @default(cuid())
+  milestoneId      String // the dependent milestone
+  dependsOnId      String // the prerequisite milestone
+
+  milestone        Milestone @relation("MilestoneDependent", fields: [milestoneId], references: [id], onDelete: Cascade)
+  dependsOn        Milestone @relation("MilestonePrerequisite", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([milestoneId, dependsOnId])
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  NEXT
+  IN_PROGRESS
+  WAITING_EXTERNAL
+  BLOCKED
+  NEEDS_REVIEW
+  DONE
+  NOT_APPLICABLE
+  NEEDS_CONFIRMATION
+}
+
+enum VerificationLevel {
+  REQUIRED
+  RECOMMENDED
+  OPTIONAL
+  NEEDS_VERIFICATION
+  NOT_APPLICABLE
+}
+
+model Task {
+  id                 String            @id @default(cuid())
+  companyId          String
+  categoryId         String
+  milestoneId        String
+  title              String
+  description        String?
+  status             TaskStatus        @default(NOT_STARTED)
+  priorityOverride   Int?
+  weight             Float             @default(1)
+  requiredForLaunch  Boolean           @default(false)
+  verificationLevel  VerificationLevel @default(RECOMMENDED)
+  ownerId            String?
+  estimatedMinutes   Int?
+  dueDate            DateTime?
+  externalWaitUntil  DateTime?
+  waitingOn          String?
+  blockedReason      String?
+  evidenceRequired   Boolean           @default(false)
+  overrideReason     String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  completedAt        DateTime?
+
+  company            Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category           Category          @relation(fields: [categoryId], references: [id])
+  milestone          Milestone         @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  owner              Person?           @relation("TaskOwner", fields: [ownerId], references: [id])
+
+  checklistItems     ChecklistItem[]
+  evidence           Evidence[]
+  costItems          CostItem[]
+  documents          Document[]
+  blockers           BlockerTask[]
+  activities         Activity[]
+
+  dependsOn          TaskDependency[]  @relation("TaskDependent")
+  dependents         TaskDependency[]  @relation("TaskPrerequisite")
+
+  @@index([status])
+  @@index([milestoneId])
+  @@index([categoryId])
+}
+
+model TaskDependency {
+  id           String @id @default(cuid())
+  taskId       String // the dependent task
+  dependsOnId  String // the prerequisite task
+
+  task         Task   @relation("TaskDependent", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn    Task   @relation("TaskPrerequisite", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnId])
+}
+
+model ChecklistItem {
+  id        String   @id @default(cuid())
+  taskId    String
+  title     String
+  done      Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Documents & evidence
+// ---------------------------------------------------------------------------
+
+model Document {
+  id                  String    @id @default(cuid())
+  name                String
+  category            String // Corporate, Legal, Finance, Tax, Governance, Brand, Contracts, Policies, Technology, Security
+  categoryId          String?
+  documentType        String?
+  version             String?   @default("1.0")
+  status              String    @default("ACTIVE") // ACTIVE, SUPERSEDED, EXPIRED, NEEDS_REVIEW
+  issueDate           DateTime?
+  expiryDate          DateTime?
+  renewalReminderDate DateTime?
+  ownerId             String?
+  filePath            String? // relative path under storage/uploads
+  originalFileName    String?
+  fileSizeBytes        Int?
+  mimeType            String?
+  externalUrl         String?
+  notes               String?
+  relatedTaskId       String?
+  relatedMilestoneId  String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  owner               Person?   @relation("DocumentOwner", fields: [ownerId], references: [id])
+  relatedCategory     Category? @relation(fields: [categoryId], references: [id])
+  relatedTask         Task?     @relation(fields: [relatedTaskId], references: [id])
+  evidenceFor         Evidence[]
+}
+
+enum EvidenceType {
+  FILE
+  URL
+  NOTE
+}
+
+model Evidence {
+  id         String       @id @default(cuid())
+  taskId     String
+  type       EvidenceType
+  documentId String?
+  url        String?
+  note       String?
+  createdAt  DateTime     @default(now())
+
+  task       Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  document   Document?    @relation(fields: [documentId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Costs
+// ---------------------------------------------------------------------------
+
+enum CostType {
+  ONE_TIME
+  RECURRING
+}
+
+enum CostStatus {
+  PLANNED
+  COMMITTED
+  PAID
+  UNKNOWN
+}
+
+model CostItem {
+  id             String     @id @default(cuid())
+  vendor         String
+  description    String?
+  categoryId     String?
+  amount         Float
+  currency       String     @default("AED")
+  vat            Float?
+  type           CostType   @default(ONE_TIME)
+  frequency      String? // e.g. "monthly", "annual" — only meaningful for RECURRING
+  status         CostStatus @default(PLANNED)
+  paymentDate    DateTime?
+  renewalDate    DateTime?
+  relatedTaskId  String?
+  notes          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  category       Category?  @relation(fields: [categoryId], references: [id])
+  relatedTask    Task?      @relation(fields: [relatedTaskId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Blockers
+// ---------------------------------------------------------------------------
+
+enum BlockerType {
+  FOUNDER
+  PARTNER
+  AUTHORITY
+  BANK
+  ACCOUNTANT
+  SUPPLIER
+  LEGAL
+  FINANCIAL
+  TECHNICAL
+  UNKNOWN
+}
+
+enum BlockerStatus {
+  OPEN
+  RESOLVED
+}
+
+model Blocker {
+  id             String        @id @default(cuid())
+  title          String
+  description    String?
+  type           BlockerType   @default(UNKNOWN)
+  ownerId        String?
+  waitingOnPersonId String?
+  waitingOnText  String?
+  startDate      DateTime      @default(now())
+  lastActionDate DateTime?
+  nextFollowUp   DateTime?
+  status         BlockerStatus @default(OPEN)
+  resolvedAt     DateTime?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  owner          Person?       @relation("BlockerOwner", fields: [ownerId], references: [id])
+  waitingOnPerson Person?      @relation("BlockerWaitingOn", fields: [waitingOnPersonId], references: [id])
+  relatedTasks   BlockerTask[]
+}
+
+model BlockerTask {
+  id        String  @id @default(cuid())
+  blockerId String
+  taskId    String
+
+  blocker   Blocker @relation(fields: [blockerId], references: [id], onDelete: Cascade)
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, taskId])
+}
+
+// ---------------------------------------------------------------------------
+// Quick capture
+// ---------------------------------------------------------------------------
+
+enum NoteStatus {
+  INBOX
+  CONVERTED
+  ARCHIVED
+}
+
+model Note {
+  id               String     @id @default(cuid())
+  rawText          String
+  title            String?
+  description      String?
+  categoryId       String?
+  ownerId          String?
+  status           NoteStatus @default(INBOX)
+  priority         Int?
+  dueDate          DateTime?
+  relatedMilestoneId String?
+  waitingOn        String?
+  convertedTaskId  String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  owner            Person?    @relation("NoteOwner", fields: [ownerId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Launch gates
+// ---------------------------------------------------------------------------
+
+model LaunchGate {
+  id          String     @id @default(cuid())
+  key         String     @unique
+  name        String
+  description String?
+  sortOrder   Int        @default(0)
+
+  categories  Category[]
+}
+
+// ---------------------------------------------------------------------------
+// Activity, weekly review, snapshots
+// ---------------------------------------------------------------------------
+
+model Activity {
+  id         String   @id @default(cuid())
+  actorId    String?
+  entityType String // Task, Document, Blocker, Cost, Note, Readiness, etc.
+  entityId   String?
+  action     String // completed, reopened, uploaded_evidence, status_changed, etc.
+  summary    String // human readable, e.g. "Marked 'Finalize shareholder agreement' as Done"
+  metadata   String? // JSON-encoded extra detail
+  taskId     String?
+  createdAt  DateTime @default(now())
+
+  actor      Person?  @relation(fields: [actorId], references: [id])
+  task       Task?    @relation(fields: [taskId], references: [id])
+
+  @@index([createdAt])
+}
+
+model WeeklyReview {
+  id                   String   @id @default(cuid())
+  weekStart            DateTime
+  weekEnd              DateTime
+  completedCount       Int      @default(0)
+  readinessBefore      Float?
+  readinessAfter       Float?
+  whatMovedForward     String?
+  whatSlipped          String?
+  openBlockersCount    Int      @default(0)
+  externalWaitsCount   Int      @default(0)
+  moneySpent           Float    @default(0)
+  projectedDateBefore  DateTime?
+  projectedDateAfter   DateTime?
+  notes                String?
+  createdAt            DateTime @default(now())
+}
+
+model Snapshot {
+  id                    String   @id @default(cuid())
+  takenAt               DateTime @default(now())
+  overallReadiness      Float
+  criticalPathReadiness Float
+  categoryReadinessJson String // JSON-encoded { [categoryKey]: number }
+  projectedReadyDate    DateTime?
+  reason                String? // explanation for why the projection moved
+  createdAt             DateTime @default(now())
+
+  @@index([takenAt])
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio & proof
+// ---------------------------------------------------------------------------
+
+enum PortfolioStage {
+  CONCEPT
+  PROTOTYPE
+  DEMO_READY
+  CASE_STUDY_READY
+  PUBLISHED
+}
+
+model PortfolioItem {
+  id                  String         @id @default(cuid())
+  name                String
+  description         String?
+  technology          String?
+  targetSector        String?
+  businessValue       String?
+  demoLink            String?
+  repoLink            String?
+  screenshotsJson      String? // JSON array of storage paths
+  videoLink           String?
+  caseStudyLink       String?
+  architectureDiagram String?
+  stage               PortfolioStage @default(CONCEPT)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Settings (KV store)
+// ---------------------------------------------------------------------------
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String // JSON-encoded
+  updatedAt DateTime @updatedAt
+}

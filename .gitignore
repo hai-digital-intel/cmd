@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Runtime data (local-first: never commit the user's actual company data)
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/backups/*.json
+data/backups/*.zip
+!data/backups/.gitkeep
+
+# Local file storage (uploaded documents/evidence)
+storage/uploads/*
+!storage/uploads/.gitkeep
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Testing
+coverage/
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+*.tsbuildinfo
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+generated/
+
+# Misc
+.turbo/

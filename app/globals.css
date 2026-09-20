@@ -1,0 +1,186 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Warm neutral surface, not stark white */
+  --background: oklch(0.98 0.004 90);
+  --foreground: oklch(0.22 0.014 260);
+
+  --surface: oklch(1 0 0);
+  --surface-muted: oklch(0.965 0.006 90);
+  --surface-sunken: oklch(0.945 0.007 90);
+
+  --border: oklch(0.9 0.007 90);
+  --border-strong: oklch(0.82 0.008 90);
+
+  /* Deep navy/charcoal as the confident primary, not SaaS purple */
+  --primary: oklch(0.28 0.045 262);
+  --primary-foreground: oklch(0.98 0.004 90);
+
+  --accent: oklch(0.55 0.09 220);
+  --accent-foreground: oklch(0.98 0.004 90);
+
+  --muted: oklch(0.55 0.012 260);
+  --muted-foreground: oklch(0.46 0.014 260);
+
+  /* Semantic status colours — restrained, not neon */
+  --success: oklch(0.52 0.11 155);
+  --success-foreground: oklch(0.98 0.02 155);
+  --success-bg: oklch(0.94 0.035 155);
+
+  --progress: oklch(0.5 0.1 250);
+  --progress-foreground: oklch(0.98 0.01 250);
+  --progress-bg: oklch(0.93 0.03 250);
+
+  --waiting: oklch(0.68 0.11 80);
+  --waiting-foreground: oklch(0.25 0.03 80);
+  --waiting-bg: oklch(0.94 0.045 85);
+
+  --blocked: oklch(0.52 0.13 25);
+  --blocked-foreground: oklch(0.98 0.01 25);
+  --blocked-bg: oklch(0.94 0.04 30);
+
+  --confirm: oklch(0.6 0.01 260);
+  --confirm-foreground: oklch(0.25 0.01 260);
+  --confirm-bg: oklch(0.93 0.005 260);
+
+  --na: oklch(0.75 0.006 90);
+  --na-foreground: oklch(0.45 0.008 90);
+
+  --ring: oklch(0.55 0.09 220);
+
+  --radius: 0.75rem;
+}
+
+:root[data-theme="dark"],
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --background: oklch(0.19 0.012 260);
+    --foreground: oklch(0.93 0.006 90);
+
+    --surface: oklch(0.23 0.014 260);
+    --surface-muted: oklch(0.26 0.015 260);
+    --surface-sunken: oklch(0.16 0.012 260);
+
+    --border: oklch(0.32 0.016 260);
+    --border-strong: oklch(0.4 0.018 260);
+
+    --primary: oklch(0.85 0.02 260);
+    --primary-foreground: oklch(0.2 0.014 260);
+
+    --accent: oklch(0.68 0.1 220);
+    --accent-foreground: oklch(0.15 0.02 220);
+
+    --muted: oklch(0.7 0.01 260);
+    --muted-foreground: oklch(0.66 0.012 260);
+
+    --success: oklch(0.7 0.12 155);
+    --success-foreground: oklch(0.15 0.03 155);
+    --success-bg: oklch(0.28 0.05 155);
+
+    --progress: oklch(0.72 0.1 250);
+    --progress-foreground: oklch(0.15 0.02 250);
+    --progress-bg: oklch(0.28 0.05 250);
+
+    --waiting: oklch(0.78 0.1 85);
+    --waiting-foreground: oklch(0.2 0.03 85);
+    --waiting-bg: oklch(0.32 0.05 85);
+
+    --blocked: oklch(0.68 0.14 25);
+    --blocked-foreground: oklch(0.15 0.02 25);
+    --blocked-bg: oklch(0.32 0.06 25);
+
+    --confirm: oklch(0.7 0.008 260);
+    --confirm-foreground: oklch(0.18 0.01 260);
+    --confirm-bg: oklch(0.3 0.01 260);
+
+    --na: oklch(0.4 0.01 260);
+    --na-foreground: oklch(0.62 0.01 260);
+
+    --ring: oklch(0.68 0.1 220);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-bg: var(--success-bg);
+  --color-progress: var(--progress);
+  --color-progress-foreground: var(--progress-foreground);
+  --color-progress-bg: var(--progress-bg);
+  --color-waiting: var(--waiting);
+  --color-waiting-foreground: var(--waiting-foreground);
+  --color-waiting-bg: var(--waiting-bg);
+  --color-blocked: var(--blocked);
+  --color-blocked-foreground: var(--blocked-foreground);
+  --color-blocked-bg: var(--blocked-bg);
+  --color-confirm: var(--confirm);
+  --color-confirm-foreground: var(--confirm-foreground);
+  --color-confirm-bg: var(--confirm-bg);
+  --color-na: var(--na);
+  --color-na-foreground: var(--na-foreground);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 0.35rem);
+  --radius-md: calc(var(--radius) - 0.2rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.3rem);
+  --font-sans: "Segoe UI", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+:root {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-feature-settings: "cv11", "ss01";
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+}
+
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}

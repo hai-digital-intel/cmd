@@ -1,0 +1,109 @@
+# PLAN.md — h.ai Setup Command Center
+
+## 1. What this is
+
+A local-first Next.js app that tracks the one-time company-setup process for h.ai
+(Dubai Silicon Oasis / Dtec) from "partially established" to "operationally ready."
+It is a dependency-aware completion engine, not a generic task manager, and is
+explicitly designed to be archived once launch gates are READY.
+
+## 2. Stack
+
+- Next.js 16 (App Router, React Server Components + Server Actions), React 19, TypeScript 5.9 (strict)
+- Tailwind CSS v4 (CSS-first `@theme`, no tailwind.config.js required)
+- Hand-rolled shadcn-style primitives in `components/ui` (Radix primitives + `class-variance-authority` + `tailwind-merge`), since the interactive `shadcn` CLI cannot run in this non-interactive shell
+- Prisma ORM 7 + SQLite (`./data/hai-setup.db`), classic engine (no driver adapter needed for SQLite)
+- Zod 4 for validation, React Hook Form + `@hookform/resolvers` for forms
+- Recharts for the few charts that earn their place (cost breakdown, readiness trend)
+- `@xyflow/react` (the current package for what the brief calls "React Flow") for the dependency map
+- Lucide for icons, `cmdk` for the command palette, `sonner` for toasts
+- Vitest for business-logic + component tests
+
+No external services, no auth provider, no cloud DB. Everything works offline after `npm install`.
+
+## 3. Domain model (see DATA_MODEL.md for full field lists)
+
+`Company → Category → Milestone → Task → ChecklistItem`, plus `TaskDependency` and
+`MilestoneDependency` (explicit relational join tables, never comma-separated ID strings),
+`Person` (stakeholders), `Document` + `Evidence`, `CostItem`, `Blocker`, `Note` (quick capture),
+`LaunchGate` (one per Category, aggregates readiness), `Activity` (audit trail), `WeeklyReview`,
+`Snapshot` (readiness-over-time, for timeline explainability), `PortfolioItem`, `Setting` (KV store).
+
+Dependencies are modeled at both levels: `TaskDependency` for the task detail drawer's
+"Dependencies / Unlocks" lists, and `MilestoneDependency` for the Setup Map / roadmap phases,
+since 50+ task nodes would be unreadable on one canvas.
+
+## 4. Business logic lives in `lib/services`, not components
+
+- `readiness.ts` — weighted readiness (category.weight × milestone.weight × task.weight),
+  NOT_APPLICABLE excluded from denominator, NEEDS_CONFIRMATION excluded from numerator.
+  Produces overall / critical-path / per-category / per-gate readiness.
+- `dependency.ts` — actionability: a task is "available" only if every task it depends on
+  is DONE or NOT_APPLICABLE, and it isn't itself BLOCKED. Recomputes downstream eligibility
+  when a prerequisite finishes; never auto-completes downstream work.
+- `launchGates.ts` — a gate is READY only when every `requiredForLaunch` milestone in its
+  categories has all its required tasks DONE/NOT_APPLICABLE; optional tasks never block a gate.
+- `prioritization.ts` — deterministic scoring for "Your Next 3": critical-path membership,
+  requiredForLaunch, downstream-unlock count, deadline proximity, effort (low-effort/high-unlock
+  boost), heavy penalties for WAITING_EXTERNAL/BLOCKED (blocked tasks are excluded from Next 3
+  unless resolving the blocker is itself the actionable step), manual override.
+- `timeline.ts` — critical-path length estimate (longest chain of estimatedMinutes across
+  dependency graph) → projected ready date, with an explanation string sourced from what's
+  currently on the critical path.
+- `cost.ts` — spent / committed / planned / recurring-monthly aggregation, currency-agnostic
+  (AED is a `Setting`, not a hardcoded constant).
+- `backup.ts` — JSON export/import with a schema `version` field; restore validates the version
+  and refuses silently-incompatible data; auto-backs-up before a destructive restore.
+
+Every one of these is a pure function over plain data (no Prisma types leaking into scoring
+logic) so Vitest can exercise them without a database.
+
+## 5. Routes
+
+`/` (Today), `/setup`, `/setup/[categorySlug]`, `/tasks/[id]`, `/roadmap`, `/roadmap/map`,
+`/blockers`, `/documents`, `/costs`, `/readiness`, `/activity`, `/settings`, `/focus`,
+plus API routes only where a Server Action doesn't fit (file streaming for uploads/downloads,
+backup export/import as file transfer).
+
+## 6. Key design choices
+
+- Server Components read directly from `lib/services` + Prisma; mutations are Server Actions
+  that revalidate the affected routes — no separate REST layer to keep in sync.
+- File uploads land in `storage/uploads/<uuid>__<sanitized-original-name>`; the DB stores that
+  relative path plus original name. Filenames are generated server-side (uuid) to prevent path
+  traversal; the original name is never used as a filesystem path.
+- "Your Next 3" is a home-page component, not a page — it deliberately shows nothing else by
+  default (progressive disclosure is a hard requirement, not a nice-to-have).
+- AI is an interface (`lib/ai/provider.ts`) with a `NullAIProvider` default. The Copilot panel
+  works entirely off deterministic queries against the Prisma data; if no provider is configured
+  it says so and keeps working.
+- Archive is a `Setting` flag (`companyArchived`), not a schema migration — flips the UI into a
+  read-mostly historical view without deleting anything.
+
+## 7. Phases (executed in order, committing after each stable milestone)
+
+0. Scaffold, schema, design tokens (this phase)
+1. Prisma + seed + app shell/nav + Category/Milestone/Task CRUD
+2. Today dashboard, readiness engine, dependency engine, launch gates
+3. Focus Mode, Quick Capture, Blockers, Waiting, 15-minute wins
+4. Documents + evidence + local storage, Costs
+5. Roadmap, critical path, dependency map, timeline projections
+6. Activity log, weekly review, command palette
+7. Backup/restore/export, Archive mode
+8. Copilot (deterministic) + AI provider abstraction
+9. Tests, accessibility/responsive pass, build verification, docs
+
+## 8. Assumptions (flagged, not fabricated)
+
+Anything about actual completion state (bank account open? VAT required? shareholder
+agreement signed?) is seeded as `NEEDS_CONFIRMATION` / `NEEDS_VERIFICATION`, never assumed true.
+Only facts explicitly given in the brief (service licence received, ownership 50/50, DSO/Dtec,
+haiconsulting.ae, services list) are seeded as fact.
+
+## 9. Risks
+
+- Tailwind v4's automatic content scanning needs the app router files to actually exist before
+  first build; mitigated by scaffolding all routes before the first `npm run build`.
+- Prisma 7 SQLite: using the classic `provider = "sqlite"` engine rather than a driver adapter —
+  if `prisma generate` demands an adapter this plan falls back to `@prisma/adapter-better-sqlite3`.
+- `@xyflow/react` styling needs its CSS imported once in the root layout or nodes render unstyled.
