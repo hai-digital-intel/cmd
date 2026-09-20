@@ -51,6 +51,7 @@ export default async function FocusPage() {
     reasons: top.reasons,
     estimatedMinutes: full.estimatedMinutes,
     unlocksLabels: full.dependents.map((d) => d.task.title),
+    instructions: full.instructions,
     checklistItems: full.checklistItems,
     documentLinks: [
       ...full.documents.map((d) => ({ name: d.name, url: d.externalUrl })),

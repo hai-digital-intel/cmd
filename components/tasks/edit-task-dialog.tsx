@@ -16,6 +16,7 @@ export interface EditTaskDialogProps {
   taskId: string;
   title: string;
   description: string | null;
+  instructions: string | null;
   ownerId: string | null;
   estimatedMinutes: number | null;
   dueDate: Date | null;
@@ -30,6 +31,7 @@ export function EditTaskDialog(props: EditTaskDialogProps) {
   const [pending, startTransition] = useTransition();
   const [title, setTitle] = useState(props.title);
   const [description, setDescription] = useState(props.description ?? "");
+  const [instructions, setInstructions] = useState(props.instructions ?? "");
   const [ownerId, setOwnerId] = useState(props.ownerId ?? "");
   const [estimatedMinutes, setEstimatedMinutes] = useState(props.estimatedMinutes?.toString() ?? "");
   const [dueDate, setDueDate] = useState(props.dueDate ? props.dueDate.toISOString().slice(0, 10) : "");
@@ -42,6 +44,7 @@ export function EditTaskDialog(props: EditTaskDialogProps) {
       await updateTaskFields(props.taskId, {
         title: title.trim() || props.title,
         description: description.trim() || null,
+        instructions: instructions.trim() || null,
         ownerId: ownerId || null,
         estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : null,
         dueDate: dueDate ? new Date(dueDate) : null,
@@ -69,8 +72,18 @@ export function EditTaskDialog(props: EditTaskDialogProps) {
             <Input id="edit-title" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="edit-description">Description</Label>
-            <Textarea id="edit-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+            <Label htmlFor="edit-description">Description (why it matters)</Label>
+            <Textarea id="edit-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-instructions">Instructions (one step per line)</Label>
+            <Textarea
+              id="edit-instructions"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              rows={5}
+              placeholder={"1. First step...\n2. Second step...\n3. Third step..."}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

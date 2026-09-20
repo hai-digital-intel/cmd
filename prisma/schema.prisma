@@ -163,7 +163,8 @@ model Task {
   categoryId         String
   milestoneId        String
   title              String
-  description        String?
+  description        String? // why this matters, one or two sentences
+  instructions       String? // step-by-step "how do I actually do this" — newline-separated steps
   status             TaskStatus        @default(NOT_STARTED)
   priorityOverride   Int?
   weight             Float             @default(1)

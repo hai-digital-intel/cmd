@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ChecklistManager, type ChecklistItemData } from "@/components/tasks/checklist-manager";
+import { InstructionsList } from "@/components/tasks/instructions-list";
 import { FocusTimer } from "@/components/focus/focus-timer";
 import { updateTaskFields, updateTaskStatus, addChecklistItem, addNoteEvidence } from "@/lib/actions/tasks";
 import { estimatedTimeLabel } from "@/lib/utils";
@@ -22,6 +23,7 @@ export interface FocusTaskData {
   reasons: string[];
   estimatedMinutes: number | null;
   unlocksLabels: string[];
+  instructions: string | null;
   checklistItems: ChecklistItemData[];
   documentLinks: { name: string; url: string | null }[];
 }
@@ -88,6 +90,13 @@ export function FocusCard({ task }: { task: FocusTaskData }) {
             <Unlock className="size-3.5" /> Unlocks
           </span>{" "}
           {task.unlocksLabels.join(", ")}
+        </div>
+      )}
+
+      {task.instructions && (
+        <div className="rounded-md border border-border bg-surface-muted px-3 py-3">
+          <span className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">How to do this</span>
+          <InstructionsList text={task.instructions} />
         </div>
       )}
 

@@ -71,6 +71,7 @@ export async function setPriorityOverride(taskId: string, priority: number | nul
 export interface TaskFieldUpdate {
   title?: string;
   description?: string | null;
+  instructions?: string | null;
   ownerId?: string | null;
   estimatedMinutes?: number | null;
   dueDate?: Date | null;

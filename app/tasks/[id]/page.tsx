@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Star, Weight, Clock, CalendarClock, User as UserIcon, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Star, Weight, Clock, CalendarClock, User as UserIcon, ShieldCheck, Compass } from "lucide-react";
 import { prisma } from "@/lib/db/client";
 import { StatusBadge } from "@/components/status-badge";
 import { CompleteControl } from "@/components/tasks/complete-control";
@@ -11,6 +11,7 @@ import { EditTaskDialog } from "@/components/tasks/edit-task-dialog";
 import { DependencyManager } from "@/components/tasks/dependency-manager";
 import { ChecklistManager } from "@/components/tasks/checklist-manager";
 import { EvidenceManager } from "@/components/tasks/evidence-manager";
+import { InstructionsList } from "@/components/tasks/instructions-list";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { estimatedTimeLabel, formatDate } from "@/lib/utils";
@@ -60,6 +61,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
             taskId={task.id}
             title={task.title}
             description={task.description}
+            instructions={task.instructions}
             ownerId={task.ownerId}
             estimatedMinutes={task.estimatedMinutes}
             dueDate={task.dueDate}
@@ -93,6 +95,17 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
             </p>
           ))}
         </Card>
+      )}
+
+      {task.instructions && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <Compass className="size-4" /> How to do this
+          </h2>
+          <Card className="p-5">
+            <InstructionsList text={task.instructions} />
+          </Card>
+        </section>
       )}
 
       <Card className="p-5">
