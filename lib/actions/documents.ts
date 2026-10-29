@@ -126,6 +126,7 @@ export async function createDocument(input: CreateDocumentInput) {
       fileSizeBytes: fileMeta?.fileSizeBytes,
       mimeType: fileMeta?.mimeType,
       lifecycleStatus: fileMeta ? "DRAFT_COMPLETE" : "NOT_STARTED",
+      version: fileMeta ? "v1.0" : null,
     },
   });
 

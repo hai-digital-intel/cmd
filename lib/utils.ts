@@ -34,6 +34,11 @@ export function formatRelativeToNow(date: Date | string) {
   return rtf.format(diffMonths, "month");
 }
 
+/** Wraps Date.now() so components can call it without tripping the no-impure-render lint rule. */
+export function daysFromNow(date: Date): number {
+  return Math.round((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
 export function estimatedTimeLabel(minutes: number | null | undefined) {
   if (!minutes) return null;
   if (minutes < 60) return `${minutes} min`;

@@ -182,3 +182,21 @@ fact (the trade licence, ownership records); everything else is `DRAFT_REQUIRED`
 **Backward compatibility**: `/api/documents/[id]/file` (upload safety, MIME allowlisting) and
 `lib/storage.ts` are untouched — new fields are additive, and the file-serving contract
 (`Document.filePath`/`mimeType` always reflect the current file) is preserved by design.
+
+### Delivered vs. deferred (as built)
+
+**Delivered**: the schema/migration, pure governance engine, launch-gate integration, curated
+185-document seed, workflow server actions (review, linked blocker, approval, signatures,
+activation, append-only versions), the six-tab Documents page and detail page, a launch-gate
+picker, renewals, CSV/JSON exports, Ctrl+K document search, an upload policy (25 MB cap,
+executable types refused, 30 MB Server Action limit), backup/restore coverage for the new
+tables, and unit plus database-backed integration tests.
+
+**Deferred** (listed in ROADMAP.md): weekly-review integration, cost-to-document linking UI,
+guided drafting outlines, owner/reviewer/"no file"/review-due filters, a folder-structured ZIP
+export, search beyond documents, and importing the rest of the brief's long-list of documents.
+
+**Corrections made along the way** (so the record is honest): an early seed gave every document
+a `version` of "1.0"/"0.1" with no version history behind it; it is now `null` until a file
+exists. The "Registered Office / Workspace Agreement" was briefly seeded Active on the strength
+of a done *address* task and is now Needs Confirmation.

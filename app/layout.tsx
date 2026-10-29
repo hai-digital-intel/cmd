@@ -23,10 +23,15 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [archived, openBlockerCount, inboxNoteCount] = await Promise.all([
+  const [archived, openBlockerCount, inboxNoteCount, searchableDocuments] = await Promise.all([
     isCompanyArchived(),
     prisma.blocker.count({ where: { status: "OPEN" } }),
     prisma.note.count({ where: { status: "INBOX" } }),
+    prisma.document.findMany({
+      where: { archivedAt: null },
+      select: { id: true, name: true, category: true, reviewerName: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   return (
@@ -34,7 +39,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="font-sans antialiased">
         <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem disableTransitionOnChange>
           <TooltipProvider delayDuration={200}>
-            <AppShell archived={archived} openBlockerCount={openBlockerCount} inboxNoteCount={inboxNoteCount}>
+            <AppShell
+              archived={archived}
+              openBlockerCount={openBlockerCount}
+              inboxNoteCount={inboxNoteCount}
+              searchableDocuments={searchableDocuments}
+            >
               {children}
             </AppShell>
             <Toaster position="bottom-right" richColors closeButton />

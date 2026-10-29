@@ -43,6 +43,11 @@ lib/services/
   dependency.ts        — isTaskActionable, computeCriticalPathIds, cycle detection
   readiness.ts         — weighted readiness (never completed/total)
   launchGates.ts        — milestone completion + gate READY/NOT_READY/NEEDS_CONFIRMATION
+                          (tasks *and* required-for-launch documents)
+  documentGovernance.ts  — document weight/countability/completeness, document readiness,
+                          gate-blocking documents, computed signature status, P0 launch health
+  documentPrioritization.ts — "Documents to produce next" (mirrors the Next-3 engine)
+  documentExport.ts       — CSV/JSON tables for the register, queues and renewals
   prioritization.ts     — "Your Next 3" / 15-minute-wins scoring
   timeline.ts            — critical-path effort → projected ready date
   cost.ts                 — setup-spend aggregation
@@ -84,6 +89,35 @@ scoring rule, it almost certainly belongs in `lib/services`, not inline in a pag
   and the reasoning behind each one — they're documented inline since they're the one part of
   this codebase intended to be retuned without a design discussion.
 
+## Document governance
+
+Documents are four connected concepts, not one flat vault: the **register** (what must exist),
+**governance** (review/signature/lifecycle state), **readiness** (what blocks launch) and the
+**vault** (the files). They share the `Document` table but are separate in code:
+
+- *Compute, don't store.* Signature status and launch-gate status are derived from rows
+  (`DocumentSignatory`, documents + milestones) on every read — the same rule the app already
+  applied to `LaunchGate.status`. Nothing about them can drift.
+- *Readiness stays honest.* Document readiness is its own weighted figure
+  (`computeDocumentReadiness`); it is deliberately **not** blended into the task-based overall
+  percentage, because the two are on different scales and mixing them would silently change
+  numbers the existing tests pin. Documents affect "Company Ready" the explicit way — through
+  launch gates (`computeGateStatus`'s optional fourth argument).
+- *Workflow actions* live in `lib/actions/documents.ts`. Sending for review creates one linked
+  blocker (never a second); approving resolves it and moves the document to READY_FOR_SIGNATURE
+  (or ACTIVE if no signature is needed); signing recomputes status and only advances the
+  lifecycle if the document is already in a signature stage, so a premature signature can't
+  drag a draft forward. Activation is always an explicit step.
+- *Shared loader.* `lib/data/documents.ts` flattens Prisma rows to `DocumentListItem`
+  (`lib/documentView.ts`) once; the Documents page and the export route both use it.
+- *Upload safety.* Server-generated UUID filenames (no user-controlled path), a 25 MB cap and a
+  blocked-executable list in `lib/uploadPolicy.ts` (enforced in `saveUpload`, pre-checked in the
+  dialogs), MIME-allowlisted inline serving, `nosniff` and `Content-Security-Policy: sandbox`.
+  Next's Server Action body limit is raised to 30 MB in `next.config.ts` — the 1 MB default
+  would reject an ordinary signed PDF.
+- *Exports.* `GET /api/documents/export?kind=…&format=csv|json`. CSV cells that begin with
+  `= + - @` are prefixed with `'` so document names can't act as spreadsheet formulas.
+
 ## Data flow for a mutation
 
 1. A client component calls a `"use server"` action in `lib/actions/*` directly (no fetch,
@@ -118,6 +152,11 @@ route should be marked `ƒ (Dynamic)`, not `○ (Static)`.
 - **Business logic**: `tests/services/*.test.ts` — the readiness/priority/gate/dependency rules
   above, tested as pure functions (see examples in `tests/services/launchGates.test.ts` for the
   "a required milestone that is blocked must not allow Company Ready" class of assertion).
+- **Server actions (integration)**: `tests/integration/documentWorkflow.test.ts` builds a
+  throwaway SQLite file from the project's own `prisma/migrations/*/migration.sql` and runs the
+  real document actions against it (only `next/cache` and on-disk file storage are faked). It
+  walks the draft → professional review → blocker → approval → signatures → active scenario and
+  asserts that versions never overwrite files. Run as part of `npm test`; needs no setup.
 - **Components**: one representative test (`tests/components/status-badge.test.tsx`) — most of
   this app's components are thin, data-driven presentational wrappers around the services
   layer above, which is where the actual logic (and test value) lives.
@@ -142,17 +181,20 @@ components/
                           feature components, one folder per domain area
 lib/
   services/              pure scoring/business logic (see above) — no Prisma imports
-  data/                    Prisma → flat-shape adapters (domain.ts, computed.ts, settings.ts)
+  data/                    Prisma → flat-shape adapters (domain.ts, computed.ts, documents.ts, settings.ts)
   actions/                 "use server" mutations, one file per domain area
   db/client.ts             PrismaClient singleton with the SQLite driver adapter
   ai/provider.ts           AIProvider interface + NullAIProvider default + Ollama seam
   backup.ts, backupSchema.ts   export/import logic shared by the API routes and CLI scripts
   storage.ts               local file upload/delete, path-traversal-safe by construction
+  uploadPolicy.ts          upload size cap + blocked executable extensions (shared client/server)
+  documentTaxonomy.ts      the 20 document folders;  documentFormatting.ts  labels/badge variants
+  documentView.ts          flat DocumentListItem shape used by the register UI and exports
 prisma/
   schema.prisma, migrations/, seed.ts
 generated/prisma/         Prisma Client output (gitignored, regenerated on install)
 scripts/                  setup.mjs, backup.mjs, reset-demo.mjs, restore.ts — see README
 data/                     SQLite database + backups (gitignored)
 storage/uploads/          uploaded document files (gitignored)
-tests/                    Vitest suites
+tests/                    Vitest suites (services/, components/, integration/)
 ```

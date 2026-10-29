@@ -28,8 +28,9 @@ work the moment a prerequisite finishes (it never marks anything done for you).
 - **Roadmap** — phase-by-phase progression plus an interactive dependency map (React Flow).
 - **Blockers** — what's actually stopping progress, a "Waiting on others" parking lot so
   externally-blocked work doesn't clutter Your Next 3, and a "Chase Now" drafted follow-up.
-- **Documents** — a local document vault with expiry/renewal tracking; files never leave
-  the machine.
+- **Documents** — a document register and governance system, not just a file vault: what must
+  exist, who must review/sign it, and what it's holding up. See
+  [Document governance](#document-governance) below. Files never leave the machine.
 - **Costs** — one-time vs. recurring setup spend, never bookkeeping.
 - **Readiness** — the weighted math behind the headline number, per category and per launch
   gate.
@@ -40,6 +41,65 @@ work the moment a prerequisite finishes (it never marks anything done for you).
 - **Command palette** (`Ctrl+K`) and **Quick Capture** (`C`) for low-friction input.
 - **Backup & restore** — JSON export/import with schema-version checking, plus a full
   ZIP backup (database + uploaded files) from the command line.
+
+## Document governance
+
+`/documents` is one nav item with six tabs:
+
+| Tab | Answers |
+| --- | --- |
+| **Register** | What documents should exist? Grouped into 20 folders; search + category/priority filters. |
+| **Launch Pack** | What must exist before h.ai can legally, commercially and securely take a client? A *curated* list, not simply "every P0". |
+| **Professional Review** | What needs a lawyer/accountant/etc., grouped by reviewer: ready to send, awaiting reviewer, changes required. |
+| **Signatures** | Who still has to sign what. A workflow tracker (who signed, when), **not** a digital-signature system. |
+| **Renewals** | Expiry, review-due and renewal-reminder dates, kept as separate things, soonest first. |
+| **Vault** | Which documents have a file or link attached. |
+
+Click any document for its detail page: why it matters, current state, the next action for
+where it sits in its lifecycle, signatories, version history (every version's file is kept;
+adding a version never overwrites the previous one) and its activity trail.
+
+**The review workflow**: Start drafting, Mark draft complete, *Mark sent for review* (this
+creates a linked "Waiting on the lawyer" blocker, at most one per document, which also keeps it
+out of "Your Next 3"), *Review approved* (resolves the blocker; the document becomes Ready for
+Signature, or Active if it needs no signature), each signatory marked signed, then *Activate*.
+Nothing becomes Active or Signed by itself, and nothing in this app approves a document on a
+professional's behalf.
+
+**How documents affect readiness**: only **Active** or **Signed** counts as done. A finished
+draft, or an approved-but-unsigned agreement, is progress but not completion. Not-applicable
+and trigger-dependent documents (e.g. an employee handbook before the first hire, or SaaS terms
+before a SaaS product exists) never reduce readiness until their trigger applies, and
+"needs confirmation/verification" never counts as done. Documents marked *required for launch*
+and attached to a **launch gate** hold that gate back from READY. Weighting follows priority
+(P0 much more than P2), so it is never a raw document count. The Documents header shows
+launch-document health (Ready / At risk / Blocked) with Launch Pack X/Y.
+
+**Adding requirements**: use *Add document* (pick the folder, priority, requirement level,
+whether it needs professional review/signature, and, if it's required for launch, which launch
+gate it blocks). To change the seeded starting register, edit the `DOCS` array in
+`prisma/seedDocuments.ts` (one line per document) and re-seed a fresh database
+(`npm run reset:demo`, which **deletes all local data** and asks you to confirm first; take a
+backup from Settings beforehand).
+
+**The seeded register is a curated sample (185 documents), not the full long-list.** It has the
+whole Launch Pack plus individually-chosen items from every other folder. Almost everything
+starts as Not Started / Draft Required / Needs Confirmation; only the trade licence and service
+catalogue start Active, because the existing setup plan already records those as done. The
+status of every other document, including whether a given tax registration applies, is for you
+and your advisers to confirm; this app doesn't assume it.
+
+**Exports**: the *Export* menu downloads the register, Launch Pack status, review queue,
+signature queue or renewal schedule as CSV or JSON (spreadsheet-formula-safe).
+
+**Uploads**: up to 25 MB; program/script file types (.exe, .bat, .ps1, .js, ...) are refused.
+Files are stored under server-generated names and always served as downloads (PDFs, images and
+plain text may display inline, in a sandbox). **Backups** include document versions and
+signatories, and the full ZIP backup includes the uploaded files.
+
+> Documents flagged with the shield icon are internal drafts. Nothing here is legal, tax or
+> professional advice, and a self-written or AI-assisted draft is not reviewed or approved
+> until a qualified professional has actually done so.
 
 ## Architecture
 
@@ -138,8 +198,10 @@ npm test
 Business logic (readiness scoring, launch-gate evaluation, dependency unlocking,
 prioritization, cost aggregation, timeline projection, the dependency-map layout algorithm)
 is tested as pure functions in `tests/services/*`, independent of Prisma or a running
-database. One component test (`tests/components/status-badge.test.tsx`) exercises rendered
-output. Every page and interactive flow described in the acceptance scenario was additionally
+database. `tests/integration/documentWorkflow.test.ts` additionally runs the real document
+server actions against a throwaway SQLite file built from the project's migrations (review,
+blocker, approval, signatures, active; versions never overwrite files). One component test
+(`tests/components/status-badge.test.tsx`) exercises rendered output. Every page and interactive flow described in the acceptance scenario was additionally
 verified by hand in a real browser against the seeded dataset — see
 [ARCHITECTURE.md](ARCHITECTURE.md#testing-strategy) for why a browser-driven Playwright suite
 wasn't added on top of that for this iteration.
@@ -174,6 +236,13 @@ internet without adding your own authentication in front of it first.
 ## Known limitations
 
 - Single-user by design; no accounts, roles, or permissions.
+- Document governance is a tracker, not a signing platform or legal advisor: signatures are
+  recorded by a person clicking "signed", and professional approval is only ever what a person
+  records. The seeded register is a curated sample (see above) and must be reviewed by your own
+  lawyer/accountant before being relied on.
+- Document search in Ctrl+K covers documents only (not tasks/blockers yet); the register's
+  filters are search + category + priority (the queue tabs cover review/signature/renewal
+  views). Costs can reference a document in the schema, but there's no UI to link them yet.
 - The projected-ready-date estimate is a simple critical-path-effort model, not a scheduling
   engine — treat it as a rough signal, not a promise (the UI says so too).
 - Currency conversion isn't implemented; mixed-currency cost entries are flagged, not summed

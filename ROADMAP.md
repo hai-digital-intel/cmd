@@ -11,6 +11,11 @@ Activity log + Command palette, Backup/Restore + Archive, the deterministic Setu
 a Vitest suite over the scoring/business-logic layer. `npm run build` produces a clean
 production build with every route rendering live data.
 
+A later upgrade (PLAN.md section 10) turned Documents into a register + governance + vault
+system: 20 document folders, a curated Launch Pack, professional-review and signature workflows
+with linked blockers, append-only versions, launch-gate/readiness integration, renewals,
+CSV/JSON exports, Ctrl+K document search, and integration tests over the real server actions.
+
 ## Logical next improvements, roughly in priority order
 
 1. **Weekly review workflow (UI)** — the `WeeklyReview` model and `summarizeWeek` copilot
@@ -42,6 +47,26 @@ production build with every route rendering live data.
 8. **Currency conversion** — `CostItem.currency` is per-row and the Costs page flags mixed
    currencies rather than converting them; a real conversion (even a manually-entered daily
    rate) would let multi-currency setup spend roll up into one true total.
+
+### Document governance follow-ups
+
+Deliberately left out of the first pass of the document upgrade (all additive):
+
+- **Weekly Review integration**: surface "documents sent for review more than N days ago" and
+  "signatures outstanding" in the weekly review once that page exists (item 1 above).
+- **Cost to document linking UI**: `CostItem.relatedDocumentId` exists; add a picker on the cost
+  form and a "linked costs" total on the document page.
+- **Guided drafting outlines**: structured section outlines/checklists for documents h.ai can
+  draft itself (always labelled "draft for professional review"; no auto-generated legal text).
+- **Fuller register + more filters**: import more of the long-list as individual rows when they
+  become relevant, and add filters for owner, reviewer type, "no file", and review-due.
+- **Folder-structured ZIP export**: the 20 numbered folders exist as taxonomy and CSV columns;
+  a ZIP laid out as `01 Corporate/...` is not built (the physical upload folder intentionally
+  stays flat for storage safety).
+- **Global search beyond documents**: Ctrl+K searches documents; tasks, milestones and blockers
+  are not indexed yet.
+- **External signers and reminders**: signatories who aren't `Person` rows, and follow-up
+  reminders on the signature queue.
 
 ## Explicitly not planned
 

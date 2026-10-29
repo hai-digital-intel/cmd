@@ -19,8 +19,16 @@ import {
   MessageCircleQuestion,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { documentFolderLabel } from "@/lib/documentTaxonomy";
 
-export function CommandPalette({ onOpenCopilot }: { onOpenCopilot: () => void }) {
+export interface SearchableDocument {
+  id: string;
+  name: string;
+  category: string;
+  reviewerName: string | null;
+}
+
+export function CommandPalette({ onOpenCopilot, documents }: { onOpenCopilot: () => void; documents: SearchableDocument[] }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -78,6 +86,23 @@ export function CommandPalette({ onOpenCopilot }: { onOpenCopilot: () => void })
             <PaletteItem icon={Zap} label="Show 15-minute wins" onSelect={() => go("/setup?filter=quick-wins")} />
             <PaletteItem icon={MessageCircleQuestion} label="Ask Copilot" onSelect={() => { setOpen(false); onOpenCopilot(); }} />
           </Command.Group>
+
+          {documents.length > 0 && (
+            <Command.Group heading="Documents" className="text-xs font-medium text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5">
+              {documents.map((d) => (
+                <Command.Item
+                  key={d.id}
+                  value={`${d.name} ${documentFolderLabel(d.category)} ${d.reviewerName ?? ""}`}
+                  onSelect={() => go(`/documents/${d.id}`)}
+                  className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm data-[selected=true]:bg-surface-muted"
+                >
+                  <FileText className="size-4 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{d.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{documentFolderLabel(d.category)}</span>
+                </Command.Item>
+              ))}
+            </Command.Group>
+          )}
         </Command.List>
       </Command>
     </div>

@@ -8,7 +8,7 @@
  * to verbatim, plus a real, individually-considered sample from every remaining category.
  *
  * Nothing is marked ACTIVE/SIGNED/APPROVED unless the existing task seed already established
- * that fact (the trade licence, the 50/50 ownership, the service catalogue). Everything else
+ * that fact (the trade licence and the service catalogue — both backed by DONE tasks). Everything else
  * is DRAFT_REQUIRED / NOT_STARTED / NEEDS_CONFIRMATION / NEEDS_VERIFICATION / TRIGGER_DEPENDENT,
  * per brief §57 — never fabricated as complete or professionally approved.
  */
@@ -65,7 +65,7 @@ const DOCS: DocSeed[] = [
   { key: "manager-register", name: "Manager / Director Register", category: "CORPORATE", priority: "P1", requirementLevel: "REQUIRED", lifecycleStatus: "NEEDS_CONFIRMATION", sourceType: "AUTHORITY_ISSUED", relatedTaskKey: "manager-signatory-details", relatedCategoryKey: "corporate-legal" },
   { key: "signatory-register", name: "Authorised Signatory Register", category: "CORPORATE", priority: "P1", requirementLevel: "RECOMMENDED", lifecycleStatus: "NEEDS_CONFIRMATION", sourceType: "AUTHORITY_ISSUED", relatedCategoryKey: "corporate-legal" },
   { key: "ownership-chart", name: "Ownership Structure Chart", category: "CORPORATE", priority: "P1", requirementLevel: "RECOMMENDED", lifecycleStatus: "DRAFT_REQUIRED", relatedCategoryKey: "corporate-legal" },
-  { key: "registered-office-agreement", name: "Registered Office / Workspace Agreement", description: "Dubai Silicon Oasis / Dtec.", category: "CORPORATE", priority: "P0", requirementLevel: "REQUIRED", lifecycleStatus: "ACTIVE", sourceType: "AUTHORITY_ISSUED", requiredForLaunch: true, launchGateKey: "legal", relatedTaskKey: "registered-office-confirmed", relatedCategoryKey: "corporate-legal" },
+  { key: "registered-office-agreement", name: "Registered Office / Workspace Agreement", description: "Dubai Silicon Oasis / Dtec. The address is confirmed; confirm the agreement itself is on file.", category: "CORPORATE", priority: "P0", requirementLevel: "REQUIRED", lifecycleStatus: "NEEDS_CONFIRMATION", sourceType: "AUTHORITY_ISSUED", requiredForLaunch: true, launchGateKey: "legal", relatedTaskKey: "registered-office-confirmed", relatedCategoryKey: "corporate-legal" },
   { key: "corporate-doc-index", name: "Corporate Document Index", category: "CORPORATE", priority: "P1", requirementLevel: "RECOMMENDED", lifecycleStatus: "DRAFT_REQUIRED", relatedTaskKey: "corporate-documents-organized", relatedCategoryKey: "corporate-legal" },
   { key: "licence-activity-schedule", name: "Licence Activity Schedule", category: "CORPORATE", priority: "P1", requirementLevel: "NEEDS_VERIFICATION", lifecycleStatus: "NEEDS_CONFIRMATION", sourceType: "AUTHORITY_ISSUED", relatedTaskKey: "licensed-activities-match", relatedCategoryKey: "corporate-legal" },
   { key: "renewal-calendar", name: "Licence / Corporate Renewal Calendar", category: "CORPORATE", priority: "P1", requirementLevel: "RECOMMENDED", lifecycleStatus: "DRAFT_REQUIRED", relatedTaskKey: "licence-renewal-tracked", relatedCategoryKey: "corporate-legal" },
@@ -310,7 +310,7 @@ export async function seedDocuments(prisma: PrismaClient, ctx: SeedDocumentsCont
         relatedMilestoneId: d.relatedMilestoneKey ? ctx.milestoneRecords.get(d.relatedMilestoneKey) : undefined,
         notes: d.notes,
         legalDisclaimer: d.legalDisclaimer ?? false,
-        version: d.lifecycleStatus === "NOT_STARTED" ? undefined : "0.1",
+        version: null, // no DocumentVersion exists yet, so claiming one would be fabricated
       },
     });
     documentRecords.set(d.key, rec.id);

@@ -2,6 +2,7 @@ import "server-only";
 import { mkdir, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { validateUpload } from "@/lib/uploadPolicy";
 
 export const UPLOADS_DIR = path.join(process.cwd(), "storage", "uploads");
 
@@ -23,6 +24,8 @@ export async function saveUpload(file: File): Promise<{
   fileSizeBytes: number;
   mimeType: string;
 }> {
+  const refusal = validateUpload(file);
+  if (refusal) throw new Error(refusal);
   await mkdir(UPLOADS_DIR, { recursive: true });
   const id = randomUUID();
   const ext = safeExtension(file.name);

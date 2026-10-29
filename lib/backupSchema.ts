@@ -22,6 +22,8 @@ export const BACKUP_TABLE_ORDER = [
   "taskDependency",
   "checklistItem",
   "document",
+  "documentVersion",
+  "documentSignatory",
   "evidence",
   "costItem",
   "blocker",

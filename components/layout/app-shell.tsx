@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Sidebar } from "@/components/layout/sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { QuickCapture } from "@/components/quick-capture";
-import { CommandPalette } from "@/components/command-palette";
+import { CommandPalette, type SearchableDocument } from "@/components/command-palette";
 import { CopilotPanel } from "@/components/copilot/copilot-panel";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { NAV_ITEMS } from "@/lib/nav";
@@ -16,11 +16,13 @@ export function AppShell({
   archived,
   openBlockerCount,
   inboxNoteCount,
+  searchableDocuments,
 }: {
   children: React.ReactNode;
   archived: boolean;
   openBlockerCount: number;
   inboxNoteCount: number;
+  searchableDocuments: SearchableDocument[];
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
@@ -29,7 +31,7 @@ export function AppShell({
     <div className="min-h-dvh bg-background">
       <Sidebar archived={archived} openBlockerCount={openBlockerCount} onOpenCopilot={() => setCopilotOpen(true)} />
       <MobileNav onMore={() => setMoreOpen(true)} />
-      <CommandPalette onOpenCopilot={() => setCopilotOpen(true)} />
+      <CommandPalette onOpenCopilot={() => setCopilotOpen(true)} documents={searchableDocuments} />
       <CopilotPanel open={copilotOpen} onOpenChange={setCopilotOpen} />
       <QuickCapture />
 

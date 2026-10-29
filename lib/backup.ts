@@ -21,6 +21,8 @@ export async function exportBackupData(): Promise<BackupFile> {
     taskDependency: await prisma.taskDependency.findMany(),
     checklistItem: await prisma.checklistItem.findMany(),
     document: await prisma.document.findMany(),
+    documentVersion: await prisma.documentVersion.findMany(),
+    documentSignatory: await prisma.documentSignatory.findMany(),
     evidence: await prisma.evidence.findMany(),
     costItem: await prisma.costItem.findMany(),
     blocker: await prisma.blocker.findMany(),
@@ -62,6 +64,8 @@ export async function restoreFromBackupData(data: Record<string, unknown[]>): Pr
     await tx.blocker.deleteMany();
     await tx.evidence.deleteMany();
     await tx.costItem.deleteMany();
+    await tx.documentSignatory.deleteMany();
+    await tx.documentVersion.deleteMany();
     await tx.document.deleteMany();
     await tx.checklistItem.deleteMany();
     await tx.taskDependency.deleteMany();
@@ -95,6 +99,8 @@ export async function restoreFromBackupData(data: Record<string, unknown[]>): Pr
     if (asRows("taskDependency").length) await tx.taskDependency.createMany({ data: asRows("taskDependency") });
     if (asRows("checklistItem").length) await tx.checklistItem.createMany({ data: asRows("checklistItem") });
     if (asRows("document").length) await tx.document.createMany({ data: asRows("document") });
+    if (asRows("documentVersion").length) await tx.documentVersion.createMany({ data: asRows("documentVersion") });
+    if (asRows("documentSignatory").length) await tx.documentSignatory.createMany({ data: asRows("documentSignatory") });
     if (asRows("evidence").length) await tx.evidence.createMany({ data: asRows("evidence") });
     if (asRows("costItem").length) await tx.costItem.createMany({ data: asRows("costItem") });
     if (asRows("blocker").length) await tx.blocker.createMany({ data: asRows("blocker") });
