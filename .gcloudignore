@@ -1,0 +1,7 @@
+# What `gcloud builds submit` uploads. Keeps the real database, uploads, secrets and stray
+# files out of the build context (and out of Google's build bucket).
+#!include:.gitignore
+.git
+.gitignore
+*.pub
+*.log

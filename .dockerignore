@@ -1,0 +1,14 @@
+.git
+.next
+node_modules
+generated
+data
+storage/uploads
+.env
+.env.*
+!.env.example
+*.pub
+*.log
+Dockerfile
+.dockerignore
+.gcloudignore
